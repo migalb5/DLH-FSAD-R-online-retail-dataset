@@ -6,6 +6,7 @@ library(shiny)
 library(bs4Dash)
 library(shinyWidgets)
 library(plotly)
+library(lubridate)
 
 local_file_path <- "data/online_retail_II.xlsx"
 
@@ -17,7 +18,8 @@ retail_data <- rbind(df0910, df1011)
 retail_data <- retail_data %>%
   filter(!is.na("Customer ID")) %>%  # Remove missing customers
   mutate(Revenue = Quantity * Price) %>%  # Calculate revenue
-  arrange(InvoiceDate)  # Sorting revenue values according to invoice date (over time)
+  arrange(InvoiceDate) %>%  # Sorting revenue values (not required, just for data pre-visualization)
+  mutate(InvoiceDateOnly = date(InvoiceDate))
 
 
 
@@ -60,18 +62,20 @@ ui <- bs4DashPage(dashboardHeader(title = "Online Retail Dashboard"),
 
 server <- function(input, output) {
   
-  filtered_data <- reactive({
+  filtered_data1 <- reactive({
     req(input$filterByCountry)
     retail_data %>%
-      filter(Country %in% input$filterByCountry)
+      filter(Country %in% input$filterByCountry) %>%
+      group_by(InvoiceDateOnly) %>%
+      summarise(RevenueDay = sum(Revenue))
   })
 
   output$lineChart <- renderPlotly({
-    plot_ly(filtered_data(), x = ~filtered_data()$InvoiceDate, y = ~filtered_data()$Revenue, type = 'scatter', mode = 'lines', 
+    plot_ly(filtered_data1(), x = ~filtered_data1()$InvoiceDateOnly, y = ~filtered_data1()$RevenueDay, type = 'scatter', mode = 'lines', 
             line = list(color = 'blue')) %>%
               layout(title = "Revenue by Invoice Date",
                 xaxis = list(title = "Invoice Date"),
-                yaxis = list(title = "Revenue (Qty. x Unit Price)"))
+                yaxis = list(title = "Daily Revenue (Qty. x Unit Price)"))
   })  
 }
 
