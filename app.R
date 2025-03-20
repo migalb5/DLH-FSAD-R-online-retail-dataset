@@ -7,6 +7,8 @@ library(bs4Dash)
 library(shinyWidgets)
 library(plotly)
 library(lubridate)
+library(highcharter)
+library(tidyr)
 
 local_file_path <- "data/online_retail_II.xlsx"
 
@@ -19,7 +21,7 @@ retail_data <- retail_data %>%
   filter(!is.na("Customer ID")) %>%  # Remove missing customers
   mutate(Revenue = Quantity * Price) %>%  # Calculate revenue
   arrange(InvoiceDate) %>%  # Sorting revenue values (not required, just for data pre-visualization)
-  mutate(InvoiceDateOnly = date(InvoiceDate))
+  mutate(InvoiceDateOnly = date(InvoiceDate), InvoiceYear = year(InvoiceDateOnly))
 
 
 
@@ -28,7 +30,7 @@ ui <- bs4DashPage(dashboardHeader(title = "Online Retail Dashboard"),
                   bs4DashSidebar(width = '300px', minified = TRUE, expandOnHover = TRUE,
                     sidebarMenu(
                       menuItem("Revenue over Time", tabName = "rev-over-time", icon = icon("dashboard")),
-#                      menuItem("Table", tabName = "table", icon = icon("th")),
+                      menuItem("Top-selling Products", tabName = "top-sell-prod", icon = icon("dashboard")),
                       br(),
                       pickerInput(
                         inputId = "filterByCountry", 
@@ -49,11 +51,12 @@ ui <- bs4DashPage(dashboardHeader(title = "Online Retail Dashboard"),
                               fluidRow(
                                 box(width = 12, plotlyOutput("lineChart"), title = "Interactive Sales Trend")
                               )
+                      ),
+                      tabItem(tabName = "top-sell-prod",
+                              fluidRow(
+                                box(width = 12, highchartOutput("stackedBarChart"), title = "Top-Selling Products")
+                              )
                       )
-                      # tabItem(tabName = "table",
-                      #         fluidRow(
-                      #           box(tableOutput("view"), title = "Table")
-                      #         )
                     )
                   )
 )
@@ -77,6 +80,41 @@ server <- function(input, output) {
                 xaxis = list(title = "Invoice Date"),
                 yaxis = list(title = "Daily Revenue (Qty. x Unit Price)"))
   })  
+
+  filtered_data2 <- reactive({
+    req(input$filterByCountry)
+    retail_data %>%
+      filter(Country %in% input$filterByCountry) %>%
+      group_by(Description, InvoiceYear) %>%
+      summarise(YearQuantity = sum(Quantity)) %>%
+#      arrange(Description, desc(YearQuantity)) %>%
+#      slice_head(n = 3) %>%
+      filter(YearQuantity >= 1000) %>%
+      mutate(InvoiceYear = paste0("Y", InvoiceYear)) %>%
+      pivot_wider(names_from = InvoiceYear, values_from = YearQuantity)
+  })
+
+  output$stackedBarChart <- renderHighchart({
+    highchart() %>%
+      hc_chart(type = "column") %>%
+      hc_title(text = "Top Selling Products in 2009-2011, per Country") %>%
+      hc_xAxis(title = list(text = "Product Descriptions"),
+               categories = filtered_data2()$Description) %>%
+      hc_yAxis(
+        title = list(text = "Quantity Sold"),
+        stackLabels = list(enabled = TRUE),
+        reversed = FALSE  # Does not reverse the stack order (larger items at the bottom)
+      ) %>%
+      hc_plotOptions(
+        series = list(
+          stacking = "normal"
+        )
+      ) %>%
+      hc_add_series(name = "2009", data = filtered_data2()$Y2009) %>%
+      hc_add_series(name = "2010", data = filtered_data2()$Y2010) %>%
+      hc_add_series(name = "2011", data = filtered_data2()$Y2011)
+  })
+
 }
 
 
