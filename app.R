@@ -9,28 +9,47 @@ library(plotly)
 library(lubridate)
 library(highcharter)
 library(tidyr)
+library(DT)
+library(waiter)
+library(shinycssloaders)
 
 local_file_path <- "data/online_retail_II.xlsx"
 
+#use_waitress(color = "grey", percent_color = "black")
+
+#waitress <- Waitress$new("#import")
+
 df0910 <- readxl::read_excel(local_file_path, sheet = 1)
+#waitress$inc(25)
+
 df1011 <- readxl::read_excel(local_file_path, sheet = 2)
+#waitress$inc(25)
 
 retail_data <- rbind(df0910, df1011)
+#waitress$inc(25)
 
 retail_data <- retail_data %>%
   filter(!is.na("Customer ID")) %>%  # Remove missing customers
   mutate(Revenue = Quantity * Price) %>%  # Calculate revenue
   arrange(InvoiceDate) %>%  # Sorting revenue values (not required, just for data pre-visualization)
   mutate(InvoiceDateOnly = date(InvoiceDate), InvoiceYear = year(InvoiceDateOnly))
+#waitress$inc(25)
+#waitress$close()
 
 
+waiting_screen <- tagList(
+  spin_flower(),
+  h4("Carefully preparing data...")
+)
 
+preloader <- list(html = tagList(spin_1(), "Loading ..."), color = "#343a40")
 
-ui <- bs4DashPage(dashboardHeader(title = "Online Retail Dashboard"),
+ui <- bs4DashPage(preloader = preloader, dashboardHeader(title = "Online Retail Dashboard"),
                   bs4DashSidebar(width = '300px', minified = TRUE, expandOnHover = TRUE,
                     sidebarMenu(
                       menuItem("Revenue over Time", tabName = "rev-over-time", icon = icon("dashboard")),
                       menuItem("Top-selling Products", tabName = "top-sell-prod", icon = icon("dashboard")),
+                      menuItem("Interactive Data Table", tabName = "inter-dt", icon = icon("th")),
                       br(),
                       pickerInput(
                         inputId = "filterByCountry", 
@@ -49,12 +68,17 @@ ui <- bs4DashPage(dashboardHeader(title = "Online Retail Dashboard"),
                     tabItems(
                       tabItem(tabName = "rev-over-time",
                               fluidRow(
-                                box(width = 12, plotlyOutput("lineChart"), title = "Interactive Sales Trend")
+                                box(width = 12, withSpinner(plotlyOutput("lineChart")), title = "Interactive Sales Trend")
                               )
                       ),
                       tabItem(tabName = "top-sell-prod",
                               fluidRow(
-                                box(width = 12, highchartOutput("stackedBarChart"), title = "Top-Selling Products")
+                                box(width = 12, withSpinner(highchartOutput("stackedBarChart")), title = "Top-Selling Products")
+                              )
+                      ),
+                      tabItem(tabName = "inter-dt",
+                              fluidRow(
+                                box(width = 12, withSpinner(DTOutput("table")), title = "Interactive Data Table")
                               )
                       )
                     )
@@ -64,7 +88,11 @@ ui <- bs4DashPage(dashboardHeader(title = "Online Retail Dashboard"),
 
 
 server <- function(input, output) {
-  
+
+  observeEvent(
+    input$filterByCountry, {
+      waiter_show(html = waiting_screen, color = "grey")
+
   filtered_data1 <- reactive({
     req(input$filterByCountry)
     retail_data %>%
@@ -115,6 +143,31 @@ server <- function(input, output) {
       hc_add_series(name = "2011", data = filtered_data2()$Y2011)
   })
 
+  filtered_data3 <- reactive({
+    req(input$filterByCountry)
+    retail_data %>%
+      filter(Country %in% input$filterByCountry) %>%
+      select(Invoice, InvoiceDateOnly, StockCode, Description, Quantity, Price, "Customer ID", Country)
+  })
+  
+  output$table <- renderDataTable({
+    datatable(filtered_data3(), filter = "top", colnames = c("Invoice ID",
+                                                             "Invoice Date",
+                                                             "Product Stock Code",
+                                                             "Product Description",
+                                                             "Product Quantity",
+                                                             "Product Unit Price",
+                                                             "Customer ID",
+                                                             "Country"),
+              rownames = FALSE,
+              options = list(pageLength = 6)
+    ) %>%
+      formatCurrency("Price", " €", digits = 2)
+  })
+
+    Sys.sleep(2.0)
+    waiter_hide()}
+  )
 }
 
 
