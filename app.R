@@ -12,6 +12,7 @@ library(tidyr)
 library(DT)
 library(waiter)
 library(shinycssloaders)
+library(rio)
 
 local_file_path <- "data/online_retail_II.xlsx"
 
@@ -61,7 +62,13 @@ ui <- bs4DashPage(preloader = preloader, dashboardHeader(title = "Online Retail 
                         ), 
                         multiple = TRUE,
                         selected = "United Kingdom"
-                      )
+                      ),
+                      br(),
+                      br(),
+                      br(),
+                      selectInput("fileType", "Select File Format:", choices = c("CSV" = "csv", "Excel" = "xlsx"), selected = "CSV"),
+                      br(),
+                      downloadButton("downloadData", "Export Data")
                     )
                   ),
                   bs4DashBody(
@@ -165,7 +172,21 @@ server <- function(input, output) {
       formatCurrency("Price", " €", digits = 2)
   })
 
-    Sys.sleep(2.0)
+  fileContent <- reactive({
+    retail_data %>%
+      filter(Country %in% input$filterByCountry)
+  })
+
+  output$downloadData <- downloadHandler(
+    filename <- function() {
+      paste(paste(input$filterByCountry, collapse = "-"), "-", Sys.Date(), ".", input$fileType, sep = "")
+    },
+    content <- function(file) {
+      rio::export(fileContent(), file, format = input$fileType)
+    }
+  )
+
+    Sys.sleep(1.0)
     waiter_hide()}
   )
 }
