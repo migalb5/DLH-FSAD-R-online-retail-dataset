@@ -13,6 +13,8 @@ library(DT)
 library(waiter)
 library(shinycssloaders)
 library(rio)
+library(rmarkdown)
+library(shinyjs)
 
 local_file_path <- "data/online_retail_II.xlsx"
 
@@ -45,7 +47,31 @@ waiting_screen <- tagList(
 
 preloader <- list(html = tagList(spin_1(), "Loading ..."), color = "#343a40")
 
-ui <- bs4DashPage(preloader = preloader, dashboardHeader(title = "Online Retail Dashboard"),
+ui <- bs4DashPage(preloader = preloader,
+                  #' # Include shinyjs
+                  #' useShinyjs(),
+                  #' 
+                  #' # Add some CSS for the loading spinner
+                  #' tags$head(
+                  #'   tags$style(HTML("
+                  #'     .spinner {
+                  #'     display: none;
+                  #'     border: 4px solid #f3f3f3;
+                  #'     border-top: 4px solid #3498db;
+                  #'     border-radius: 50%;
+                  #'     width: 20px;
+                  #'     height: 20px;
+                  #'     animation: spin 1s linear infinite;
+                  #'     margin-left: 10px;
+                  #'     vertical-align: middle;
+                  #'     }
+                  #'     @keyframes spin {
+                  #'     0% { transform: rotate(0deg); }
+                  #'     100% { transform: rotate(360deg); }
+                  #'     }
+                  #'   "))
+                  #' ),
+                  dashboardHeader(title = "Online Retail Dashboard"),
                   bs4DashSidebar(width = '300px', minified = TRUE, expandOnHover = TRUE,
                     sidebarMenu(
                       menuItem("Revenue over Time", tabName = "rev-over-time", icon = icon("dashboard")),
@@ -64,11 +90,20 @@ ui <- bs4DashPage(preloader = preloader, dashboardHeader(title = "Online Retail 
                         selected = "United Kingdom"
                       ),
                       br(),
-                      br(),
+                      #br(),
                       br(),
                       selectInput("fileType", "Select File Format:", choices = c("CSV" = "csv", "Excel" = "xlsx"), selected = "CSV"),
+                      #br(),
+                      downloadButton("downloadData", "Export Data"),
                       br(),
-                      downloadButton("downloadData", "Export Data")
+                      br(),
+                      selectInput("reportFormat", "Select Report Format:", choices = c("HTML" = "html", "PDF" = "pdf", "Word" = "docx"), selected = "HTML"),
+                      # Download button with inline spinner
+                      div(
+                        style = "display: inline-flex; align-items: center;",
+                        downloadButton("download_report", "Download Report"),
+                        div(id = "loading-spinner", class = "spinner")
+                      )
                     )
                   ),
                   bs4DashBody(
@@ -186,6 +221,33 @@ server <- function(input, output) {
     }
   )
 
+  # Download handler for the R Markdown report (HTML)
+  output$download_report <- downloadHandler(
+    filename = function() {
+      paste("report-", Sys.Date(), ".html", sep = "")
+    },
+    content = function(file) {
+      # Show the spinner and disable the button during rendering
+      shinyjs::show("loading-spinner")
+      shinyjs::disable("download_report")
+      
+      # Ensure the spinner hides and button re-enables even if rendering fails
+      on.exit({
+        shinyjs::hide("loading-spinner")
+        shinyjs::enable("download_report")
+      })
+      
+      req(data())
+      # Render the R Markdown file
+      rmarkdown::render(
+        input = "www/rmd_template.Rmd",
+        output_file = file,
+        params = list(data = filtered_data1()),
+        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  
     Sys.sleep(1.0)
     waiter_hide()}
   )

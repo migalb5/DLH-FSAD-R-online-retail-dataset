@@ -1,0 +1,47 @@
+---
+title: "Filtered Data Report"
+date: "`r Sys.Date()`"
+params:
+  data: NULL
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+```
+
+# Summary Statistics
+Below is a summary of the uploaded dataset.
+
+```{r summary, include=TRUE}
+data <- params$data
+summary(data)
+```
+
+# Plot
+Here is a histogram of the 'value' column (if it exists and is numeric).
+
+```{r plot, include=TRUE}
+if ("value" %in% names(data) && is.numeric(data$value)) {
+  ggplot(data, aes(x = value)) +
+    geom_histogram(binwidth = 1, fill = "blue", color = "black") +
+    theme_minimal() +
+    labs(title = "Histogram of Value Column", x = "Value", y = "Count")
+} else {
+  "No suitable 'value' column for plotting."
+}
+```
+
+# Column Means
+Below are the means of all numeric columns in the dataset.
+
+```{r means, include=TRUE}
+numeric_cols <- sapply(data, is.numeric)
+if (any(numeric_cols)) {
+  means <- colMeans(data[, numeric_cols, drop = FALSE], na.rm = TRUE)
+  knitr::kable(data.frame(Column = names(means), Mean = means), digits = 2)
+} else {
+  "No numeric columns to summarize."
+}
+```
