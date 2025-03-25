@@ -30,8 +30,9 @@ waiting_screen <- tagList(
 preloader <- list(html = tagList(spin_1(), "Loading ..."), color = "#343a40")
 
 ui <- bs4DashPage(preloader = preloader,
-                  dashboardHeader(title = "Online Retail Dashboard"),
-                  bs4DashSidebar(width = '300px', minified = TRUE, expandOnHover = TRUE,
+                  dashboardHeader(title = "Online Retail Dashboard", .list = c("Hello!")),
+                  bs4DashSidebar(
+                              #width = '300px', minified = TRUE,
                                  # Include shinyjs
                                  useShinyjs(),
                                  
@@ -74,19 +75,19 @@ ui <- bs4DashPage(preloader = preloader,
                       ),
                       br(),
                       #br(),
-                      br(),
-                      selectInput("fileType", "Select File Format:", choices = c("CSV" = "csv", "Excel" = "xlsx"), selected = "CSV"),
                       #br(),
-                      downloadButton("downloadData", "Export Data"),
-                      br(),
-                      br(),
                       selectInput("reportFormat", "Select Report Format:", choices = c("HTML" = "html", "PDF" = "pdf", "Word" = "docx"), selected = "HTML"), 
                       # Download button with inline spinner
                       div(
                         style = "display: inline-flex; align-items: center;",
                         downloadButton("download_report", "Download Report"),
                         div(id = "loading-spinner", class = "spinner")
-                      )
+                      ),
+                      br(),
+                      br(),
+                      selectInput("fileType", "Select File Format:", choices = c("CSV" = "csv", "Excel" = "xlsx"), selected = "CSV"),
+                      #br(),
+                      downloadButton("downloadData", "Export Data")
                     )
                   ),
                   bs4DashBody(
@@ -136,6 +137,10 @@ server <- function(input, output) {
   
   res_auth <- secure_server(
     check_credentials = check_credentials(credentials)
+  )
+  
+  output$welcome_text <- renderText(
+    paste("Hello, ", res_auth$user," ! (role: ", res_auth$role, ")")
   )
 
   observeEvent(
