@@ -15,6 +15,9 @@ library(shinycssloaders)
 library(rio)
 library(rmarkdown)
 library(shinyjs)
+library(shinymanager)
+
+message(lubridate::now())
 
 local_file_path <- "data/online_retail_II.xlsx"
 
@@ -127,13 +130,32 @@ ui <- bs4DashPage(preloader = preloader,
                   )
 )
 
+ui <- secure_app(ui)
+
 
 
 server <- function(input, output) {
+  
+  user1_login <- Sys.getenv("username1")
+  user1_password <- Sys.getenv("password1")
+  
+  if (user1_login == "" || user1_password == "")
+    stop("User credentials not set in .Renviron. Please configure username1 and password1.")
+  
+  credentials <- data.frame(
+    user = c(user1_login),
+    password = c(user1_password)
+#    admin = c(TRUE)
+  )
+  
+  res_auth <- secure_server(
+    check_credentials = check_credentials(credentials)
+  )
 
   observeEvent(
     input$filterByCountry, {
       waiter_show(html = waiting_screen, color = "grey")
+  # top of observeEvent
 
   filtered_data1 <- reactive({
     req(input$filterByCountry)
@@ -247,10 +269,11 @@ server <- function(input, output) {
       )
     }
   )
-  
+
+    # bottom of observeEvent  
     Sys.sleep(1.0)
-    waiter_hide()}
-  )
+    waiter_hide()
+  }) # end of observeEvent
 }
 
 

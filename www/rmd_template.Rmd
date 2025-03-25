@@ -35,10 +35,10 @@ if ("RevenueDay" %in% names(data) && is.numeric(data$RevenueDay)) {
 ```
 
 # Column Means
-Below are the means of all numeric columns in the dataset. All figures in currency: 
+Below are the means of all numeric columns in the dataset. All figures in currency: `r params$currency`
+
 
 ```{r currency, include=FALSE}
-params$currency
 ```
 
 ```{r means, include=TRUE}
