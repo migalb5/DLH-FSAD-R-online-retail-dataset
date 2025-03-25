@@ -242,7 +242,7 @@ server <- function(input, output) {
       rmarkdown::render(
         input = "www/rmd_template.Rmd",
         output_file = file,
-        params = list(data = filtered_data1()),
+        params = list(data = filtered_data1(), currency = "USD"),
         envir = new.env(parent = globalenv())
       )
     }

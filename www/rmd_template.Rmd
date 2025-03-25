@@ -3,6 +3,7 @@ title: "Filtered Data Report"
 date: "`r Sys.Date()`"
 params:
   data: NULL
+  currency: NULL
 output: html_document
 ---
 
@@ -23,18 +24,22 @@ summary(data)
 Here is a histogram of the 'value' column (if it exists and is numeric).
 
 ```{r plot, include=TRUE}
-if ("value" %in% names(data) && is.numeric(data$value)) {
-  ggplot(data, aes(x = value)) +
+if ("RevenueDay" %in% names(data) && is.numeric(data$RevenueDay)) {
+  ggplot(data, aes(x = RevenueDay)) +
     geom_histogram(binwidth = 1, fill = "blue", color = "black") +
     theme_minimal() +
-    labs(title = "Histogram of Value Column", x = "Value", y = "Count")
+    labs(title = "Histogram of Daily Revenue Column", x = "RevenueDay", y = "Count")
 } else {
   "No suitable 'value' column for plotting."
 }
 ```
 
 # Column Means
-Below are the means of all numeric columns in the dataset.
+Below are the means of all numeric columns in the dataset. All figures in currency: 
+
+```{r currency, include=FALSE}
+params$currency
+```
 
 ```{r means, include=TRUE}
 numeric_cols <- sapply(data, is.numeric)
