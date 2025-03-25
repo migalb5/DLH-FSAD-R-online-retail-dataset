@@ -17,7 +17,8 @@ library(rmarkdown)
 library(shinyjs)
 library(shinymanager)
 
-message(lubridate::now())
+message(paste("=== ", lubridate::now(), "================================"))
+message(paste("======================================================"))
 
 local_file_path <- "data/online_retail_II.xlsx"
 
@@ -145,7 +146,7 @@ server <- function(input, output) {
   credentials <- data.frame(
     user = c(user1_login),
     password = c(user1_password)
-#    admin = c(TRUE)
+#    admin = c(TRUE) # this only works with SQLite as back-end
   )
   
   res_auth <- secure_server(
