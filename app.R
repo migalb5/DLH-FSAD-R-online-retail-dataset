@@ -1,6 +1,6 @@
 
-library(readxl)
-#library(rio)
+#library(readxl)
+library(rio)
 library(dplyr)
 library(shiny)
 library(bs4Dash)
@@ -30,31 +30,32 @@ waiting_screen <- tagList(
 preloader <- list(html = tagList(spin_1(), "Loading ..."), color = "#343a40")
 
 ui <- bs4DashPage(preloader = preloader,
-                  #' # Include shinyjs
-                  #' useShinyjs(),
-                  #' 
-                  #' # Add some CSS for the loading spinner
-                  #' tags$head(
-                  #'   tags$style(HTML("
-                  #'     .spinner {
-                  #'     display: none;
-                  #'     border: 4px solid #f3f3f3;
-                  #'     border-top: 4px solid #3498db;
-                  #'     border-radius: 50%;
-                  #'     width: 20px;
-                  #'     height: 20px;
-                  #'     animation: spin 1s linear infinite;
-                  #'     margin-left: 10px;
-                  #'     vertical-align: middle;
-                  #'     }
-                  #'     @keyframes spin {
-                  #'     0% { transform: rotate(0deg); }
-                  #'     100% { transform: rotate(360deg); }
-                  #'     }
-                  #'   "))
-                  #' ),
                   dashboardHeader(title = "Online Retail Dashboard"),
                   bs4DashSidebar(width = '300px', minified = TRUE, expandOnHover = TRUE,
+                                 # Include shinyjs
+                                 useShinyjs(),
+                                 
+                                 # Add some CSS for the loading spinner
+                                 tags$head(
+                                   tags$style(HTML("
+                      .spinner {
+                      display: none;
+                      border: 4px solid #f3f3f3;
+                      border-top: 4px solid #3498db;
+                      border-radius: 50%;
+                      width: 20px;
+                      height: 20px;
+                      animation: spin 1s linear infinite;
+                      margin-left: 10px;
+                      vertical-align: middle;
+                      }
+                      @keyframes spin {
+                      0% { transform: rotate(0deg); }
+                      100% { transform: rotate(360deg); }
+                      }
+                    "))
+                                 ),
+
                     sidebarMenu(
                       menuItem("Revenue over Time", tabName = "rev-over-time", icon = icon("dashboard")),
                       menuItem("Top-selling Products", tabName = "top-sell-prod", icon = icon("dashboard")),
@@ -69,7 +70,7 @@ ui <- bs4DashPage(preloader = preloader,
                           selectedTextFormat = "count > 2"
                         ), 
                         multiple = TRUE,
-                        selected = "United Kingdom"
+                        selected = "Portugal"
                       ),
                       br(),
                       #br(),
@@ -79,7 +80,7 @@ ui <- bs4DashPage(preloader = preloader,
                       downloadButton("downloadData", "Export Data"),
                       br(),
                       br(),
-                      selectInput("reportFormat", "Select Report Format:", choices = c("HTML" = "html", "PDF" = "pdf", "Word" = "docx"), selected = "HTML"),
+                      selectInput("reportFormat", "Select Report Format:", choices = c("HTML" = "html", "PDF" = "pdf", "Word" = "docx"), selected = "HTML"), 
                       # Download button with inline spinner
                       div(
                         style = "display: inline-flex; align-items: center;",
@@ -117,13 +118,19 @@ server <- function(input, output) {
   
   user1_login <- Sys.getenv("username1")
   user1_password <- Sys.getenv("password1")
+  user1_role <- Sys.getenv("role1")
+  user2_login <- Sys.getenv("username2")
+  user2_password <- Sys.getenv("password2")
+  user2_role <- Sys.getenv("role2")
   
-  if (user1_login == "" || user1_password == "")
-    stop("User credentials not set in .Renviron. Please configure username1 and password1.")
+  if (user1_login == "" || user1_password == "" || user1_role == "" ||
+      user2_login == "" || user2_password == "" || user2_role == "")
+    stop("User credentials not set in .Renviron. Please configure all usernames, passwords and roles.")
   
   credentials <- data.frame(
-    user = c(user1_login),
-    password = c(user1_password)
+    user = c(user1_login, user2_login),
+    password = c(user1_password, user2_password),
+    role = c(user1_role, user2_role)
 #    admin = c(TRUE) # this only works with SQLite as back-end
   )
   
@@ -208,11 +215,13 @@ server <- function(input, output) {
       formatCurrency("Price", " €", digits = 2)
   })
 
+  if (res_auth$role == "admin") (
   fileContent <- reactive({
     retail_data %>%
       filter(Country %in% input$filterByCountry)
-  })
+  }))
 
+  if (res_auth$role == "admin") {
   output$downloadData <- downloadHandler(
     filename <- function() {
       paste(paste(input$filterByCountry, collapse = "-"), "-", Sys.Date(), ".", input$fileType, sep = "")
@@ -220,7 +229,11 @@ server <- function(input, output) {
     content <- function(file) {
       rio::export(fileContent(), file, format = input$fileType)
     }
-  )
+  )}
+  else {
+    hide("downloadData")
+    hide("fileType")
+  }
 
   # Download handler for the R Markdown report (HTML)
   output$download_report <- downloadHandler(
@@ -242,7 +255,7 @@ server <- function(input, output) {
       currency <- switch (input$filterByCountry,
         "United Kingdom" = "GBP",
         "Japan" = "YEN",
-        default = "N/A"
+        "N/A"
       )
       # Render the R Markdown file
       rmarkdown::render(
