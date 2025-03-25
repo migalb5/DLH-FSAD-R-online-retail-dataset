@@ -18,31 +18,9 @@ library(shinyjs)
 library(shinymanager)
 
 message(paste("=== ", lubridate::now(), "================================"))
-message(paste("======================================================"))
+message(paste("================================================================"))
 
-local_file_path <- "data/online_retail_II.xlsx"
-
-#use_waitress(color = "grey", percent_color = "black")
-
-#waitress <- Waitress$new("#import")
-
-df0910 <- readxl::read_excel(local_file_path, sheet = 1)
-#waitress$inc(25)
-
-df1011 <- readxl::read_excel(local_file_path, sheet = 2)
-#waitress$inc(25)
-
-retail_data <- rbind(df0910, df1011)
-#waitress$inc(25)
-
-retail_data <- retail_data %>%
-  filter(!is.na("Customer ID")) %>%  # Remove missing customers
-  mutate(Revenue = Quantity * Price) %>%  # Calculate revenue
-  arrange(InvoiceDate) %>%  # Sorting revenue values (not required, just for data pre-visualization)
-  mutate(InvoiceDateOnly = date(InvoiceDate), InvoiceYear = year(InvoiceDateOnly))
-#waitress$inc(25)
-#waitress$close()
-
+retail_data <- rio::import("data/online_retail_II_prepared.csv")
 
 waiting_screen <- tagList(
   spin_flower(),
@@ -225,7 +203,7 @@ server <- function(input, output) {
                                                              "Customer ID",
                                                              "Country"),
               rownames = FALSE,
-              options = list(pageLength = 6)
+              options = list(pageLength = 5)
     ) %>%
       formatCurrency("Price", " €", digits = 2)
   })
@@ -261,11 +239,16 @@ server <- function(input, output) {
       })
       
       req(data())
+      currency <- switch (input$filterByCountry,
+        "United Kingdom" = "GBP",
+        "Japan" = "YEN",
+        default = "N/A"
+      )
       # Render the R Markdown file
       rmarkdown::render(
         input = "www/rmd_template.Rmd",
         output_file = file,
-        params = list(data = filtered_data1(), currency = "USD"),
+        params = list(data = filtered_data1(), currency = currency),
         envir = new.env(parent = globalenv())
       )
     }
