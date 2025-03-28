@@ -1,6 +1,7 @@
 
 library(RSQLite)
 library(DBI)
+library(dplyr)
 
 db_connect <- function(path = "data/shiny_app.db") {
   DBI::dbConnect(RSQLite::SQLite(), path)
@@ -26,8 +27,10 @@ print(highest_revenue_product)
 top5_countries_sales = dbGetQuery(conn, "SELECT Country, SUM(Revenue) FROM transactions WHERE Revenue >= 0 GROUP BY Country ORDER BY SUM(Revenue) DESC LIMIT 5")
 print(top5_countries_sales)
 
-total_sales_per_day = dbGetQuery(conn, "SELECT InvoiceDateOnly, SUM(Revenue) FROM transactions WHERE Revenue >= 0 GROUP BY InvoiceDateOnly ORDER BY InvoiceDateOnly ASC")
-print(total_sales_per_day)
+total_sales_per_day = dbGetQuery(conn, "SELECT InvoiceDateOnly, SUM(Revenue) AS RevenueDaily FROM transactions WHERE Revenue >= 0 GROUP BY InvoiceDateOnly ORDER BY InvoiceDateOnly ASC")
+print(total_sales_per_day %>%
+        group_by(substr(InvoiceDateOnly, 1, 7)) %>%
+        summarise(RevenueMonthly = sum(RevenueDaily)))
 
 highest_customer_transations = dbGetQuery(conn, "SELECT CustomerID, COUNT(CustomerID) FROM transactions GROUP BY CustomerID ORDER BY COUNT(CustomerID) DESC LIMIT 3")
 print(highest_customer_transations)
