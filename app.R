@@ -15,11 +15,13 @@ library(rio)
 library(rmarkdown)
 library(shinyjs)
 library(shinymanager)
+library(leaflet)
 
 message(paste("=== ", lubridate::now(), "================================"))
 message(paste("================================================================"))
 
 retail_data <- rio::import("data/online_retail_II_prepared.csv")
+countries <- rio::import("data/country-coord2.csv")
 
 waiting_screen <- tagList(
   spin_flower(),
@@ -60,6 +62,7 @@ ui <- bs4DashPage(preloader = preloader,
                       menuItem("Revenue over Time", tabName = "rev-over-time", icon = icon("dashboard")),
                       menuItem("Top-selling Products", tabName = "top-sell-prod", icon = icon("dashboard")),
                       menuItem("Interactive Data Table", tabName = "inter-dt", icon = icon("th")),
+                      menuItem("Sales By Country", tabName = "sales-map", icon = icon("dashboard")),
                       br(),
                       pickerInput(
                         inputId = "filterByCountry", 
@@ -104,6 +107,11 @@ ui <- bs4DashPage(preloader = preloader,
                       tabItem(tabName = "inter-dt",
                               fluidRow(
                                 box(width = 12, withSpinner(DTOutput("table")), title = "Interactive Data Table")
+                              )
+                      ),
+                      tabItem(tabName = "sales-map",
+                              fluidRow(
+                                box(width = 12, withSpinner(leafletOutput("map")), title = "Sales By Country")
                               )
                       )
                     )
@@ -217,6 +225,31 @@ server <- function(input, output) {
               options = list(pageLength = 5)
     ) %>%
       formatCurrency("Price", " €", digits = 2)
+  })
+
+  filtered_data5 <- reactive({
+    req(input$filterByCountry)
+    filtered_data4 <- inner_join(retail_data, countries, by = "Country")
+    filtered_data4 %>%
+      filter(Country %in% input$filterByCountry) %>%
+      group_by(Country, Lat, Long) %>%
+      summarise(Volume = sum(Quantity), TotalRevenue = sum(Revenue))
+  })
+  
+  output$map <- renderLeaflet({
+    map0 <- leaflet() %>%
+      addTiles()  # Add default OpenStreetMap map tiles
+
+    for (i in 1:nrow(filtered_data5())) {
+        map0 <- map0 %>%
+        addMarkers(
+          lng = filtered_data5()$Long[i],
+          lat = filtered_data5()$Lat[i],
+          popup = paste("Sales volume: ", filtered_data5()$Volume[i], 
+                        ", Total revenue: ", filtered_data5()$TotalRevenue[i])
+        )
+    }
+    map0
   })
 
   if (res_auth$role == "admin") (
